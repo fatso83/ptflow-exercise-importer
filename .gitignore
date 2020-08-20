@@ -1,0 +1,6 @@
+# The current user session
+token.pickle
+
+# The app credentials
+credentials.json
+.vim/
