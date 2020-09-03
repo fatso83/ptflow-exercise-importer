@@ -103,18 +103,22 @@ def main():
         images = get_images(image_dir, exercise.id)
         exercise.images.extend(images)
 
-        createExercise(exercise, server, session, parsed.bookkeeping_id)
+        # check if already uploaded - return early if so
+        result = createExercise(exercise, server, session)
+        print(result)
 
+        #parsed.bookkeeping_id
+        print("todo: log data to bookkeeping")
 
-def createExercise(exercise,server, session, bookkeeping_id):
+def createExercise(exercise,server, session):
+    print("todo: upload images, get ids")
+    print("todo: upload exercise with image ids")
 
-    # check if already uploaded - return early if so
+    return (exercise.id, Status.OK)
 
-    # upload images, get ids
-
-    # upload exercise with image ids
-
-    # log data to bookkeeping
+class Status():
+    OK = 'OK'
+    SKIPPED = 'SKIPPED'
 
 def get_images(image_dir, exercise_id):
     # All these image paths assume the image dir is the subdir ./PACK
