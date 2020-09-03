@@ -22,6 +22,11 @@ unzip -d PACK STEPS-pack.zip
 find PACK -print0 -name '*1101-*.png' |  xargs -0  rename -s '1101-' '-' 
 ```
 
+## Installing requirements
+```
+pip install --upgrade pyyaml google-api-python-client google-auth-httplib2 google-auth-oauthlib  --user
+```
+
 ## Running the uploader on the given files
 
 ```
