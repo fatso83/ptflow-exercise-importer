@@ -27,9 +27,10 @@
 # print stats
 
 from __future__ import print_function
-import uuid
+import requests
 import datetime
 # import dateutil.parser  as parser
+import uuid
 import time
 import pickle
 import glob
@@ -48,9 +49,8 @@ from google.auth.transport.requests import Request
 SPREADSHEET_ID = "18_LuqnjAmVzAL6zQzJKjSWqGgPMLgYx0I_k3wV2I2xg"
 RANGE_NAME = "Import pri 1 og 2!A2:Q"
 
+# For development using mock data
 use_fakes = False
-use_fakes = True
-uploader = None
 
 logging.basicConfig(
         filename="importer.log", filemode="a", 
@@ -89,27 +89,27 @@ argparser.add_argument(
         + "Can also be set using the environment variable PTFLOW_SERVER.")
 
 def main():
-    global uploader
-    if use_fakes:
-        uploader = FakeUploader() # quick testing
-        get_exercise_rows = get_stubbed_rows
-    else:
-        uploader = RealUploader()
-        get_exercise_rows = get_spreadsheet_values
-
     parsed = argparser.parse_args()
     try:
         session_token = parsed.session_token or os.environ["PTFLOW_TOKEN"]
         server = parsed.server or os.environ["PTFLOW_SERVER"]
+
+        logger.debug("Server URL: %s"%server)
+        logger.debug("Session token: %s"%session_token) 
     except KeyError as e:
         print("Server and session token are required")
         sys.exit(1)
 
+    if use_fakes:
+        logger.info("Using fakes for data")
+        uploader = FakeUploader() # quick testing
+        get_exercise_rows = get_stubbed_rows
+    else:
+        uploader = RealUploader(server, session_token)
+        get_exercise_rows = get_spreadsheet_values
+
     image_dir = parsed.image_dir
     sheets_id = parsed.sheets_id or SPREADSHEET_ID
-
-    logger.debug("Server URL: %s"%server)
-    logger.debug("Session token: %s"%session_token) 
 
     values = get_exercise_rows(sheets_id, RANGE_NAME)
 
@@ -141,7 +141,7 @@ def main():
                 logger.info("Already uploaded exercise '%s' (server id: %s). Skipping.", exercise.id, uploads[exercise.id].uuid)
                 continue
 
-            result = upload_exercise(exercise, images, server, session_token)
+            result = upload_exercise(exercise, images, uploader)
 
         except NonConformingImagesException as exception:
             logger.warn(exception)
@@ -165,10 +165,14 @@ def main():
 
 
 def create_upload_map(oplog_filename):
+    uploads = dict()
+
+    if not os.path.isfile(oplog_filename):
+        return uploads
+
     with open(oplog_filename, "r") as file: 
         previous_session = yaml.load(file)
 
-    uploads = dict()
     for item in previous_session:
         tmp = LoggedExercise(
                 item['exercise_id'], 
@@ -190,45 +194,70 @@ def add_result_to_oplog(item, log_filename):
     with open(log_filename, "a+") as file: 
         file.write(item.to_yaml_list_item())
 
-def upload_exercise(exercise, images, server, session_token):
+def upload_exercise(exercise, images, uploader):
 
     logger.debug("Uploading images for exercise %s", exercise.id)
 
     image_uuids = { 
             'start': uploader.upload_image(images[0]),
-            'end': uploader.upload_image(images[1])
-            }
+            'end': uploader.upload_image(images[1]) }
     logger.debug("Got image uuids: %s"%str(image_uuids))
 
     logger.info("Uploading exercise %s", exercise.id)
+    uploader.upload_exercise(exercise)
 
     timestamp = datetime.datetime.utcnow()
     return LoggedExercise(exercise.id, '22238b0e-f3b9-11ea-9377-00155d1775a6', Status.OK, timestamp, images, image_uuids)
 
+def uuid_string():
+    return str(uuid.uuid4())
+
 class RealUploader:
+
+    def __init__(self, server, bearer_token):
+        logger.debug("Initialized uploader with bearer token {0}".format(bearer_token))
+        self.server = server
+        self.bearer_token = bearer_token
+
+    def __headers(self):
+        return {
+                'Authorization': 'Bearer ' + self.bearer_token,
+                'Content-Type': 'application/json'
+                }
 
     def upload_image(self, image):
         """See ApiImageController
          --> { image:'21fd2176-f3b9-11ea-ae83-00155d1775a6' }
         """
-        raise Exception("not implemented")
+        return uuid_string()
 
     def upload_exercise(self, exercise):
         """See docs for ApiExerciseController.createAction"""
-        raise Exception("not implemented")
+        r = requests.post(
+                self.server + "/api/1/exercises", 
+                json = exercise.__dict__,
+                timeout = 1.0,
+                headers = self.__headers() )
+        logger.debug("Exercise response: {0}".format(r))
+        r.raise_for_status()
+
+        json_response = r.json()
+        logger.debug("Exercise response json: {0}".format(json_response))
+
+        return json_response.exercise.id
 
 class FakeUploader:
 
     def upload_image(self, image):
         logger.debug("Fake image upload of " + image)
         time.sleep(1)
-        return str(uuid.uuid4())
+        return uuid_string()
 
 
     def upload_exercise(self, exercise):
         logger.debug("Fake exercise upload of " + exercise.id)
         time.sleep(2)
-        return str(uuid.uuid4())
+        return uuid_string()
 
 def get_images(image_dir, exercise_id):
     # All these image paths assume the image dir is the subdir ./PACK
@@ -305,7 +334,8 @@ def get_spreadsheet_values(sheets_id, spreadsheet_range):
     result = sheet.values().get(spreadsheetId=sheets_id,
                                 range=spreadsheet_range).execute()
 
-    return result.get("values", [])
+    logger.warn("TODO:remove limit ")
+    return result.get("values", [])[0:5]
 
 def create_summary(oplog_filename, rows):
     upload_map = create_upload_map(oplog_filename)
