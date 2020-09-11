@@ -32,6 +32,10 @@ find PACK -print0 -name '*1101-*.png' |  xargs -0  rename -s '1101-' '-'
 pip install --upgrade pyyaml google-api-python-client google-auth-httplib2 google-auth-oauthlib  --user
 ```
 
+## Getting started
+Just visit Google's _Quickstart_ example for Google Sheets to get a `credentials.json` you can put alongside the script.
+This will be used when authenticating with Google.
+
 ## Running the uploader on the given files
 
 ```

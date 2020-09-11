@@ -49,7 +49,7 @@ import http.client as http_client
 http_client.HTTPConnection.debuglevel = 0
 
 # The ID and range of a sample spreadsheet.
-SPREADSHEET_ID = "18_LuqnjAmVzAL6zQzJKjSWqGgPMLgYx0I_k3wV2I2xg"
+SPREADSHEET_ID = "1NqAWP3duI9MDvzF-Z5tEeXy3L1XV7B6wz6e13stDKQE" # Niklas and Torstein
 RANGE_NAME = "Import pri 1 og 2!A2:Q"
 
 # For development using mock data
@@ -136,8 +136,14 @@ def main():
 
     logger.debug("Starting to loop through values from spreadsheet")
     for row in values:
-        exercise = Exercise.from_row(row)
-        logger.debug(str(exercise))
+        try:
+            exercise = Exercise.from_row(row)
+            logger.debug(str(exercise))
+        except InvalidExerciseData as e:
+            logger.info("Invalid exercise data: {0}".format(e))
+            result = LoggedExercise.from_failure(row[0], Status.SKIPPED, str(e))
+            add_result_to_oplog(result, oplog_filename)
+            continue
 
         try:
             images = get_images(image_dir, exercise.id)
@@ -148,13 +154,13 @@ def main():
                 continue
 
             result = upload_exercise(exercise, images, uploader)
+            add_result_to_oplog(result, oplog_filename)
 
         except NonConformingImagesException as exception:
             logger.warning(exception)
             result = LoggedExercise.from_failure(exercise.id, Status.SKIPPED, str(exception))
+            add_result_to_oplog(result, oplog_filename)
 
-        logger.debug("Result of upload:"+str(result))
-        add_result_to_oplog(result, oplog_filename)
 
     summary = create_summary(oplog_filename, values)
     difference_ids = summary[3]
@@ -162,8 +168,11 @@ def main():
     print(80*"-")
     print("Total number of exercises in Google Sheet: %d" % len(values))
     print("Total number of exercises processed: %d" % summary[0])
-    if len(difference_ids) > 0:
+    num_dif = len(difference_ids)
+    if num_dif > 0 and num_dif < 10:
         print("The ids that are missing from one or the other are " + str(difference_ids))
+    elif num_dif > 10:
+        print("There are more than %d ids from one or the other!"%num_dif)
     print("Failed uploads: %d" % summary[1])
     print("Skipped uploads: %d" % summary[2])
     print("\nLogfile: importer.log")
@@ -204,13 +213,17 @@ def upload_exercise(exercise, images, uploader):
 
     logger.debug("Uploading images for exercise %s", exercise.id)
 
+    img_uuid_end = uploader.upload_image(images[1]) if len(images) > 1 else ''
     image_uuids = { 
             'start': uploader.upload_image(images[0]),
-            'end': uploader.upload_image(images[1]) }
+            'end': img_uuid_end }
     logger.debug("Got image uuids: %s"%str(image_uuids))
 
     logger.info("Uploading exercise %s", exercise.id)
-    uploader.upload_exercise(exercise)
+    try:
+        uploader.upload_exercise(exercise)
+    except InvalidRequestException as e:
+        return LoggedExercise.from_failure(exercise.id, Status.FAILED, str(e))
 
     timestamp = datetime.datetime.utcnow()
     return LoggedExercise(exercise.id, '22238b0e-f3b9-11ea-9377-00155d1775a6', Status.OK, timestamp, images, image_uuids)
@@ -242,16 +255,21 @@ class RealUploader:
         r = requests.post(
                 self.server + "/api/1/exercises", 
                 json = exercise.__dict__,
-                timeout = 1.0,
+                timeout = 5.0,
                 headers = self.__headers() )
         logger.debug("Exercise response: {0}".format(r))
         logger.debug("Response body: {0}".format(r.content))
-        r.raise_for_status()
 
         json_response = r.json()
-        logger.debug("Exercise response json: {0}".format(json_response))
+        if r.status_code is not 201:
+            logger.warning("Failed in creating exercise: {0}".format(json_response))
+            raise InvalidRequestException(str(json_response))
 
-        return json_response.exercise.id
+
+        return json_response['exercise']['id']
+
+class InvalidRequestException(Exception):
+    pass
 
 class FakeUploader:
 
@@ -341,8 +359,8 @@ def get_spreadsheet_values(sheets_id, spreadsheet_range):
     result = sheet.values().get(spreadsheetId=sheets_id,
                                 range=spreadsheet_range).execute()
 
-    logger.warning("TODO:remove limit ")
-    return result.get("values", [])[0:5]
+    #logger.warning("TODO:remove limit ")
+    return result.get("values", []) #[0:5]
 
 def create_summary(oplog_filename, rows):
     upload_map = create_upload_map(oplog_filename)
@@ -402,10 +420,15 @@ class Exercise:
 
     TYPES = ["STRENGTH", "COORDINATION", "WEIGHT", "CARDIO", 
             "MOBILITY", "KETTLEBELLS", "SUSPENSIONTRAINING"]
+    FOCUSES = ["ABS", "BACK", "BICEPS", "CHEST", "LEGS", "SHOULDERS", "TRICEPS" ]
+    SUBTYPES = ['ABS', 'BACK', 'BICEPS', 'CHEST', 'LEGS', 'SHOULDERS', 'TRICEPS', 'FULL', 'HIP' ] 
 
     @staticmethod
     def from_row(row):
         """Basically a factory method: spreadsheet row to instance"""
+
+        def convert_focus(focus):
+            return focus.upper()
 
         def convert_type(literal_type):
             typeMap = {
@@ -434,8 +457,8 @@ class Exercise:
         name = row[4]
         type = convert_type(row[5])
         subtype = row[6]
-        focus_prim = row[9]
-        focus_sec = row[10]
+        focus_prim = convert_focus(row[9])
+        focus_sec = convert_focus(row[10])
         description = row[11]
         notes = ''
 
@@ -456,16 +479,24 @@ class Exercise:
         self.validate()
 
     def validate(self):
+
+        php_file = 'src/PETE/BackendBundle/Entity/Exercise.php'
         if self.type not in Exercise.TYPES:
-            raise InvalidExerciseData("%s not a valid type"%self.type)
+            raise InvalidExerciseData("%s not a valid type. Refer to %s"%(self.type, php_file))
+        if self.focus_prim and self.focus_prim not in Exercise.FOCUSES:
+            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_prim, php_file, Exercise.FOCUSES))
+        if self.focus_sec and self.focus_sec not in Exercise.FOCUSES:
+            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_sec, php_file, Exercise.FOCUSES))
+        if self.subtype and self.subtype not in Exercise.SUBTYPES:
+            raise InvalidExerciseData("%s not a valid subtype. Refer to %s. Valid: %s"%(self.focus_sec, php_file, Exercise.SUBTYPES))
 
     def set_image_uuids(self, uuids):
         self.photo_start_id = uuids.start
         self.photo_end_id = uuids.end
 
     def __str__(self):
-        args = (self.id, self.name, self.type)
-        return "Exercise{id=%s, name=%s, type=%s}"%args
+        args = (self.id, self.name, self.type, self.focus_prim)
+        return "Exercise{id=%s, name=%s, type=%s, focus_prim=%s}"%args
 
 class InvalidExerciseData(Exception):
     pass
