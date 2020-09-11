@@ -44,6 +44,9 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
+# for heavy http logging
+import http.client as http_client
+http_client.HTTPConnection.debuglevel = 0
 
 # The ID and range of a sample spreadsheet.
 SPREADSHEET_ID = "18_LuqnjAmVzAL6zQzJKjSWqGgPMLgYx0I_k3wV2I2xg"
@@ -67,6 +70,9 @@ try:
     ch.setLevel(os.environ["PTFLOW_IMPORTER_LOG_LEVEL"].upper())
 except Exception as exception:
     ch.setLevel(logging.INFO)
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument(
@@ -239,6 +245,7 @@ class RealUploader:
                 timeout = 1.0,
                 headers = self.__headers() )
         logger.debug("Exercise response: {0}".format(r))
+        logger.debug("Response body: {0}".format(r.content))
         r.raise_for_status()
 
         json_response = r.json()
