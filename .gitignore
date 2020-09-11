@@ -4,3 +4,5 @@ token.pickle
 # The app credentials
 credentials.json
 .vim/
+bookkeeping/
+importer.log
