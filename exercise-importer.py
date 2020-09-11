@@ -505,11 +505,11 @@ class Exercise:
         if self.type not in Exercise.TYPES:
             raise InvalidExerciseData("%s not a valid type. Refer to %s"%(self.type, php_file))
         if self.focus_prim and self.focus_prim not in Exercise.FOCUSES:
-            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_prim, php_file, Exercise.FOCUSES))
+            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_prim, php_file, ", ".join(Exercise.FOCUSES)))
         if self.focus_sec and self.focus_sec not in Exercise.FOCUSES:
-            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_sec, php_file, Exercise.FOCUSES))
+            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.FOCUSES)))
         if self.subtype and self.subtype not in Exercise.SUBTYPES:
-            raise InvalidExerciseData("%s not a valid subtype. Refer to %s. Valid: %s"%(self.focus_sec, php_file, Exercise.SUBTYPES))
+            raise InvalidExerciseData("%s not a valid subtype. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.SUBTYPES)))
 
     def set_image_uuids(self, uuids):
         self.photo_start_id = uuids.start
