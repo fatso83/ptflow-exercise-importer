@@ -1,10 +1,10 @@
 # ptflow-exercise-importer
 > Batch import exercise data into a ptflow server instance
 
-Uses a Google Sheet as a database (both input data and bookkeeping of running sessions) and
+Uses a Google Sheet as a database for exercises and
 a directory containing image files that are named using a specific naming scheme `{id}-.*.png`.
 
-Supports resuming imports by looking up session data in the Google Sheet (see `bookkeeping-id`).
+Supports resuming imports using a local bookkeeping file.
 
 ## Installing requirements
 ```
