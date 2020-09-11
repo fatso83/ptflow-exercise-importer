@@ -33,20 +33,22 @@ pip install --upgrade pyyaml google-api-python-client google-auth-httplib2 googl
 ```
 
 ## Getting started
-Just visit Google's _Quickstart_ example for Google Sheets to get a `credentials.json` you can put alongside the script.
+Just visit Google Sheets API's [Python _Quickstart_ example](https://developers.google.com/sheets/api/quickstart/python) to quickly get a `credentials.json` you can put in the same directory as the script.
 This will be used when authenticating with Google.
 
 ## Running the uploader on the given files
 
 ```
-# Set required environment variables
-export PTFLOW_SESSION=e061d6ee-752f-41f7-b73e-0a8f27522cd2
-export PTFLOW_SERVER=https://myserver.com:443
+# You can also set some environment variables instead of specifying them on the command line:
+# export PTFLOW_SESSION=e061d6ee-752f-41f7-b73e-0a8f27522cd2
+# export PTFLOW_SERVER=https://myserver.com:443
 
-python3 exercise-importer \
-    --image-dir ~/exercises/PACK \
+python3 exercise-importer.py \
     --sheets-id 18_LuqnjAmVzAL6zQzJKjSWqGgPMLgYx0I_k3wV2I2xg \
-    --bookkeeping-id myserver-2020-06-15
+	--image-dir ~/ptflow-exercises/PACK/ \
+    --bookkeeping-id myserver-2020-06-15 \
+	--server http://localhost:8000  \
+	--session-token 28956340ba9c7e25b49085b4d273522b
 ```
 The `bookkeeping-id` is used to create a file that will hold bookkeeping data, such as
 
