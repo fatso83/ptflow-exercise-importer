@@ -144,7 +144,7 @@ def main():
             result = upload_exercise(exercise, images, uploader)
 
         except NonConformingImagesException as exception:
-            logger.warn(exception)
+            logger.warning(exception)
             result = LoggedExercise.from_failure(exercise.id, Status.SKIPPED, str(exception))
 
         logger.debug("Result of upload:"+str(result))
@@ -171,7 +171,7 @@ def create_upload_map(oplog_filename):
         return uploads
 
     with open(oplog_filename, "r") as file: 
-        previous_session = yaml.load(file)
+        previous_session = yaml.safe_load(file)
 
     for item in previous_session:
         tmp = LoggedExercise(
@@ -334,7 +334,7 @@ def get_spreadsheet_values(sheets_id, spreadsheet_range):
     result = sheet.values().get(spreadsheetId=sheets_id,
                                 range=spreadsheet_range).execute()
 
-    logger.warn("TODO:remove limit ")
+    logger.warning("TODO:remove limit ")
     return result.get("values", [])[0:5]
 
 def create_summary(oplog_filename, rows):
