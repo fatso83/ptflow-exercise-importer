@@ -6,6 +6,11 @@ a directory containing image files that are named using a specific naming scheme
 
 Supports resuming imports by looking up session data in the Google Sheet (see `bookkeeping-id`).
 
+## Installing requirements
+```
+pip install --user --upgrade -r requirements.txt
+```
+
 ## Preparing the files
 
 - Download zip file of all exercises
@@ -34,16 +39,15 @@ pip install --upgrade pyyaml google-api-python-client google-auth-httplib2 googl
 export PTFLOW_SESSION=e061d6ee-752f-41f7-b73e-0a8f27522cd2
 export PTFLOW_SERVER=https://myserver.com:443
 
-exercise-importer \
+python3 exercise-importer \
     --image-dir ~/exercises/PACK \
     --sheets-id 18_LuqnjAmVzAL6zQzJKjSWqGgPMLgYx0I_k3wV2I2xg \
     --bookkeeping-id myserver-2020-06-15
 ```
-The `bookkeeping-id` is used to create a new worksheet (tab) within
-the spreadsheet that will hold bookkeeping data, such as
+The `bookkeeping-id` is used to create a file that will hold bookkeeping data, such as
 
 - which exercises ids have been created
-- which server created uuids correlate to which exercise image (step 1 or step 2)
+- which server created uuids correlate to which exercise 
 - when it was successfully uploaded
 
 
