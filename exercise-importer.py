@@ -29,7 +29,6 @@
 from __future__ import print_function
 import requests
 import datetime
-# import dateutil.parser  as parser
 import uuid
 import time
 import pickle
@@ -45,11 +44,11 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 # for heavy http logging
-import http.client as http_client
-http_client.HTTPConnection.debuglevel = 0
+# import http.client as http_client
+# http_client.HTTPConnection.debuglevel = 1
 
 # The ID and range of a sample spreadsheet.
-SPREADSHEET_ID = "1NqAWP3duI9MDvzF-Z5tEeXy3L1XV7B6wz6e13stDKQE" # Niklas and Torstein
+SPREADSHEET_ID = "1NqAWP3duI9MDvzF-Z5tEeXy3L1XV7B6wz6e13stDKQE" # ptflow master
 RANGE_NAME = "Import pri 1 og 2!A2:Q"
 
 # For development using mock data
@@ -213,9 +212,10 @@ def upload_exercise(exercise, images, uploader):
 
     logger.debug("Uploading images for exercise %s", exercise.id)
 
+    img_uuid_start = uploader.upload_image(images[0])
     img_uuid_end = uploader.upload_image(images[1]) if len(images) > 1 else ''
     image_uuids = { 
-            'start': uploader.upload_image(images[0]),
+            'start': img_uuid_start,
             'end': img_uuid_end }
     logger.debug("Got image uuids: %s"%str(image_uuids))
 
@@ -238,25 +238,47 @@ class RealUploader:
         self.server = server
         self.bearer_token = bearer_token
 
-    def __headers(self):
+    def default_headers(self):
         return {
                 'Authorization': 'Bearer ' + self.bearer_token,
-                'Content-Type': 'application/json'
+                'Accept': 'application/json'
                 }
 
     def upload_image(self, image):
         """See ApiImageController
          --> { image:'21fd2176-f3b9-11ea-ae83-00155d1775a6' }
         """
-        return uuid_string()
+
+             
+
+        url = self.server + "/api/1/images";
+        headers = self.default_headers()
+        headers['content-type'] = 'image/png'
+        logger.debug("Image filesize: {0}".format(os.stat(image).st_size))
+
+        with open(image, 'rb') as imagefile:
+            # POST image
+            r = requests.post(url, headers=headers, data=imagefile, timeout = 5.0)
+            logger.debug("Request headers for /api/1/images: {0}".format(r.request.headers))
+            logger.debug("Response headers for /api/1/images: {0}".format(r.headers))
+
+        json_response = r.json()
+        if r.status_code is not 201:
+            logger.warning("Failed in uploading image: {0}".format(json_response))
+            raise InvalidRequestException(str(json_response))
+
+        return json_response['image']['id']
 
     def upload_exercise(self, exercise):
         """See docs for ApiExerciseController.createAction"""
+
+        headers = self.default_headers()
+        headers['Content-Type'] = 'application/json'
         r = requests.post(
                 self.server + "/api/1/exercises", 
                 json = exercise.__dict__,
                 timeout = 5.0,
-                headers = self.__headers() )
+                headers = headers )
         logger.debug("Exercise response: {0}".format(r))
         logger.debug("Response body: {0}".format(r.content))
 
@@ -264,7 +286,6 @@ class RealUploader:
         if r.status_code is not 201:
             logger.warning("Failed in creating exercise: {0}".format(json_response))
             raise InvalidRequestException(str(json_response))
-
 
         return json_response['exercise']['id']
 
