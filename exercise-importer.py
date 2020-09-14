@@ -125,9 +125,9 @@ def main():
     logger.info("Got %s exercise rows from Google Sheets", len(values))
 
     # init bookkeeping file
-    if not os.path.isdir("bookkeeping"):
-        os.mkdir("bookkeeping")
-    oplog_filename = "bookkeeping/%s-log.yml"%parsed.bookkeeping_id
+    if not os.path.isdir("data"):
+        os.mkdir("data")
+    oplog_filename = "data/%s-log.yml"%parsed.bookkeeping_id
 
     uploads = create_upload_map(oplog_filename)
     if len(uploads.keys()):
