@@ -481,12 +481,14 @@ class Exercise:
         name = row[4]
         type = convert_type(row[5])
         subtype = row[6]
-        focus_prim = convert_focus(row[9])
-        focus_sec = convert_focus(row[10])
+        # Drop setting the focus type, due to crap data in spreadsheet
+        # Ref https://pt-flow.slack.com/archives/GQ2QX4HNJ/p1600112328050900
+        # focus_prim = convert_focus(row[9])
+        # focus_sec = convert_focus(row[10])
         description = row[11]
         notes = ''
 
-        return Exercise(id, name, description, type, subtype, focus_prim, focus_sec)
+        return Exercise(id, name, description, type, subtype, focus_prim = '', focus_sec = '')
 
     def __init__(self, id, name, description, type, subtype, focus_prim, focus_sec):
         self.id = id # this is the simple id from the spreadsheet, not the UUID from server
