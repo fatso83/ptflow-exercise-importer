@@ -212,6 +212,12 @@ def upload_exercise(exercise, images, uploader):
 
     logger.debug("Uploading images for exercise %s", exercise.id)
 
+    logger.info("Uploading exercise %s", exercise.id)
+    try:
+        exercise.uuid = uploader.upload_exercise(exercise)
+    except InvalidRequestException as e:
+        return LoggedExercise.from_failure(exercise.id, Status.FAILED, str(e))
+
     img_uuid_start = uploader.upload_image(images[0])
     img_uuid_end = uploader.upload_image(images[1]) if len(images) > 1 else ''
     image_uuids = { 
@@ -219,14 +225,11 @@ def upload_exercise(exercise, images, uploader):
             'end': img_uuid_end }
     logger.debug("Got image uuids: %s"%str(image_uuids))
 
-    logger.info("Uploading exercise %s", exercise.id)
-    try:
-        uploader.upload_exercise(exercise)
-    except InvalidRequestException as e:
-        return LoggedExercise.from_failure(exercise.id, Status.FAILED, str(e))
+    # update the now existing exercise using images and the embedded uuid
+    uploader.upload_exercise(exercise)
 
     timestamp = datetime.datetime.utcnow()
-    return LoggedExercise(exercise.id, '22238b0e-f3b9-11ea-9377-00155d1775a6', Status.OK, timestamp, images, image_uuids)
+    return LoggedExercise(exercise.id, exercise.uuid, Status.OK, timestamp, images, image_uuids)
 
 def uuid_string():
     return str(uuid.uuid4())
@@ -486,7 +489,8 @@ class Exercise:
         return Exercise(id, name, description, type, subtype, focus_prim, focus_sec)
 
     def __init__(self, id, name, description, type, subtype, focus_prim, focus_sec):
-        self.id = id
+        self.id = id # this is the simple id from the spreadsheet, not the UUID from server
+        self.uuid = '' # this is the server UUID
         self.name = name
         self.description = description
         self.type = type
