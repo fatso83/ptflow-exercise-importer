@@ -55,7 +55,7 @@ RANGE_NAME = "Import pri 1 og 2!A2:Q"
 use_fakes = False
 
 logging.basicConfig(
-        filename="importer.log", filemode="a", 
+        filename="import.log", filemode="w", 
         level=logging.DEBUG,
         format='%(asctime)s %(levelname)-8s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
