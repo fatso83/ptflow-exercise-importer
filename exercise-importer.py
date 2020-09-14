@@ -82,7 +82,7 @@ argparser.add_argument(
         help="The id of the Google Sheet containing exercise data (i.e. '18_LuqnjAmVzAL6zQzJKjSWqGgPMLgYx0I_k3wV2I2xg'")
 argparser.add_argument(
         "--bookkeeping-id", type=str, required=True,
-        help="A worksheet with this name will be created in the spreadsheet to keep tabs on what data has been uploaded")
+        help="Used to keep tabs on what data has been uploaded. Makes it possible to resume a previous upload, avoiding duplicated uploads")
 argparser.add_argument(
         "--session-token", type=str, 
         help="A valid session token taken from a browser to use when " 
