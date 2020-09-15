@@ -210,23 +210,23 @@ def add_result_to_oplog(item, log_filename):
 
 def upload_exercise(exercise, images, uploader):
 
-    logger.debug("Uploading images for exercise %s", exercise.id)
-
     logger.info("Uploading exercise %s", exercise.id)
     try:
         exercise.uuid = uploader.upload_exercise(exercise)
     except InvalidRequestException as e:
         return LoggedExercise.from_failure(exercise.id, Status.FAILED, str(e))
 
+    logger.debug("Uploading images for exercise %s", exercise.id)
     img_uuid_start = uploader.upload_image(images[0])
     img_uuid_end = uploader.upload_image(images[1]) if len(images) > 1 else ''
     image_uuids = { 
             'start': img_uuid_start,
             'end': img_uuid_end }
     logger.debug("Got image uuids: %s"%str(image_uuids))
+    exercise.set_image_uuids(image_uuids)
 
     # update the now existing exercise using images and the embedded uuid
-    uploader.upload_exercise(exercise)
+    uploader.update_exercise(exercise)
 
     timestamp = datetime.datetime.utcnow()
     return LoggedExercise(exercise.id, exercise.uuid, Status.OK, timestamp, images, image_uuids)
@@ -272,23 +272,41 @@ class RealUploader:
 
         return json_response['image']['id']
 
-    def upload_exercise(self, exercise):
+    def update_exercise(self, exercise):
+        if not exercise.uuid:
+            raise InvalidExerciseData("Trying to update exercise without a pre-set uuid does not make sense")
+        self.upload_exercise(exercise, update = True)
+
+    def upload_exercise(self, exercise, update = False):
         """See docs for ApiExerciseController.createAction"""
 
         headers = self.default_headers()
         headers['Content-Type'] = 'application/json'
-        r = requests.post(
-                self.server + "/api/1/exercises", 
-                json = exercise.__dict__,
-                timeout = 5.0,
-                headers = headers )
+
+        if update:
+            r = requests.put(
+                    self.server + "/api/1/exercises/"+exercise.uuid, 
+                    json = exercise.__dict__,
+                    timeout = 5.0,
+                    headers = headers )
+            json_response = r.json()
+            if r.status_code is not 200:
+                logger.warning("Failed in updating exercise: {0}".format(json_response))
+                raise InvalidRequestException(str(json_response))
+        else:
+            r = requests.post(
+                    self.server + "/api/1/exercises", 
+                    json = exercise.__dict__,
+                    timeout = 5.0,
+                    headers = headers )
+
+            json_response = r.json()
+            if r.status_code is not 201:
+                logger.warning("Failed in creating exercise: {0}".format(json_response))
+                raise InvalidRequestException(str(json_response))
+
         logger.debug("Exercise response: {0}".format(r))
         logger.debug("Response body: {0}".format(r.content))
-
-        json_response = r.json()
-        if r.status_code is not 201:
-            logger.warning("Failed in creating exercise: {0}".format(json_response))
-            raise InvalidRequestException(str(json_response))
 
         return json_response['exercise']['id']
 
@@ -484,10 +502,18 @@ class Exercise:
         focus_prim = convert_focus(row[9])
         focus_sec = convert_focus(row[10])
 
+        subtype = None
         # subtype = row[6]
         # Just use the focus prim value, ref Slack talk
-        subtype = focus_prim if type == 'STRENGTH' and focus_prim in SUBTYPES
-
+        if type is 'STRENGTH':
+            logger.debug("Type is strength. focus_prim is '{0}'".format(focus_prim))
+            if focus_prim in Exercise.SUBTYPES:
+                subtype = focus_prim
+            elif focus_prim == 'HIPS':
+                subtype = 'HIP'
+            else:
+                logger.warning("Strength subtype was invalid: '{0}'".format(focus_prim))
+            
         description = row[11]
         notes = ''
 
@@ -514,17 +540,17 @@ class Exercise:
 
         php_file = 'src/PETE/BackendBundle/Entity/Exercise.php'
         if self.type not in Exercise.TYPES:
-            raise InvalidExerciseData("%s not a valid type. Refer to %s"%(self.type, php_file))
+            raise InvalidExerciseData("'%s' not a valid type. Refer to %s"%(self.type, php_file))
         if self.focus_prim and self.focus_prim not in Exercise.FOCUSES:
-            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_prim, php_file, ", ".join(Exercise.FOCUSES)))
+            raise InvalidExerciseData("'%s' not a valid focus. Refer to %s. Valid: %s"%(self.focus_prim, php_file, ", ".join(Exercise.FOCUSES)))
         if self.focus_sec and self.focus_sec not in Exercise.FOCUSES:
-            raise InvalidExerciseData("%s not a valid focus. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.FOCUSES)))
-        if self.subtype and self.subtype not in Exercise.SUBTYPES:
-            raise InvalidExerciseData("%s not a valid subtype. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.SUBTYPES)))
+            raise InvalidExerciseData("'%s' not a valid focus. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.FOCUSES)))
+        if self.type is 'STRENGTH' and self.subtype not in Exercise.SUBTYPES:
+            raise InvalidExerciseData("'%s' not a valid subtype. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.SUBTYPES)))
 
     def set_image_uuids(self, uuids):
-        self.photo_start_id = uuids.start
-        self.photo_end_id = uuids.end
+        self.photo_start_id = uuids['start']
+        self.photo_end_id = uuids['end']
 
     def __str__(self):
         args = (self.id, self.name, self.type, self.focus_prim)
