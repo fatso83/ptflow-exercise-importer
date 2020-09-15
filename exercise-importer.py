@@ -257,6 +257,11 @@ class RealUploader:
         url = self.server + "/api/1/images";
         headers = self.default_headers()
         headers['content-type'] = 'image/png'
+
+        # This is not needed on latest development branch
+        # See https://stackoverflow.com/questions/63843865/wrong-content-length-when-sending-a-file/63854311#63854311
+        headers['Content-Disposition'] = 'form-data; name="not-used"; filename="also-ignored.jpg"'
+
         logger.debug("Image filesize: {0}".format(os.stat(image).st_size))
 
         with open(image, 'rb') as imagefile:
