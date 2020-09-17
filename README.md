@@ -27,11 +27,6 @@ unzip -d PACK STEPS-pack.zip
 find PACK -print0 -name '*1101-*.png' |  xargs -0  rename -s '1101-' '-' 
 ```
 
-## Installing requirements
-```
-pip install --upgrade pyyaml google-api-python-client google-auth-httplib2 google-auth-oauthlib  --user
-```
-
 ## Getting started
 Just visit Google Sheets API's [Python _Quickstart_ example](https://developers.google.com/sheets/api/quickstart/python) to quickly get a `credentials.json` you can put in the same directory as the script.
 This will be used when authenticating with Google.
