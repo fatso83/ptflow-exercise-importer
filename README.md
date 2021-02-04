@@ -40,10 +40,10 @@ This will be used when authenticating with Google.
 
 python3 exercise-importer.py \
     --sheets-id 18_LuqnjAmVzAL6zQzJKjSWqGgPMLgYx0I_k3wV2I2xg \
-	--image-dir ~/ptflow-exercises/PACK/ \
+    --image-dir ~/ptflow-exercises/PACK/ \
     --bookkeeping-id myserver-2020-06-15 \
-	--server http://localhost:8000  \
-	--session-token 28956340ba9c7e25b49085b4d273522b
+    --server http://localhost:8000  \
+    --session-token 28956340ba9c7e25b49085b4d273522b
 ```
 The `bookkeeping-id` is used to create a file that will hold bookkeeping data, such as
 
