@@ -8,7 +8,7 @@ Supports resuming imports using a local bookkeeping file.
 
 ## Installing requirements
 ```
-pip install --user --upgrade -r requirements.txt
+pip3 install --user --upgrade -r requirements.txt
 ```
 
 ## Preparing the files
