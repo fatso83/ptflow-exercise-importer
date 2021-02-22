@@ -52,3 +52,11 @@ The `bookkeeping-id` is used to create a file that will hold bookkeeping data, s
 - when it was successfully uploaded
 
 
+## Getting the token
+Just log in as someone that is allowed to create exercises, open DevTools and get the value of the `ls.authorizationData` cookie, decode it and get the token value.
+
+Here is my doing the last two steps after copy-pasting the value:
+```
+$ urldecode '%7B%22token%22%3A%225a7ef142ab835ed1719ae62b4708ca89%22%2C%22user%22%3A%7B%22id%22%3A%22aff54db8-3f73-41b7-b90e-065ceb386c00%22%2C%22first_name%22%3A%22Carl-Erik%22%2C%22last_name%22%3A%22Kopseng%22%2C%22email%22%3A%22foo%40bar.no%22%2C%22status%22%3A%22REGISTERED%22%2C%22photo%22%3Anull%2C%22photo_id%22%3Anull%2C%22role%22%3A%22ROLE_ADMIN%22%2C%22gender%22%3A%22MALE%22%2C%22birthday%22%3Anull%2C%22phone%22%3Anull%2C%22country%22%3Anull%2C%22country_code%22%3Anull%2C%22is_trial_available%22%3Atrue%2C%22invitedManager%22%3Anull%2C%22locked_currency%22%3Anull%7D%2C%22settings%22%3A%7B%22language%22%3Anull%2C%22timezone%22%3Anull%2C%22session_length%22%3A30%2C%22session_length_long%22%3A60%2C%22session_interval%22%3A15%2C%22include_logo%22%3Afalse%7D%7D' | jq .token
+"5a7ef142ab835ed1719ae62b4708ca89"
+```
