@@ -48,8 +48,8 @@ from google.auth.transport.requests import Request
 # http_client.HTTPConnection.debuglevel = 1
 
 # The ID and range of a sample spreadsheet.
-SPREADSHEET_ID = "1NqAWP3duI9MDvzF-Z5tEeXy3L1XV7B6wz6e13stDKQE" # ptflow master
-RANGE_NAME = "Import pri 1 og 2!A2:Q"
+SPREADSHEET_ID = "1oJ2bth6yuyRnEQ9h66Iefah0pDlbZIDwsK7cNdC8Zs8" # ptflow master
+RANGE_NAME = "ILLUSTRATIONS!B2:J"
 
 # For development using mock data
 use_fakes = False
@@ -134,14 +134,23 @@ def main():
         logger.info("Continuing uploads from previous session ...")
 
     logger.debug("Starting to loop through values from spreadsheet")
+    prioritized=[1,2]
     for row in values:
+
+        priority=int(row[0])
+        if priority not in prioritized:
+            logger.info("Skipping upload with priority %s. Priorities: %s", row[0], prioritized)
+            continue
+
         try:
-            exercise = Exercise.from_row(row)
+            exercise = Exercise.from_row(row[1:])
             logger.debug(str(exercise))
         except InvalidExerciseData as e:
             logger.info("Invalid exercise data: {0}".format(e))
             result = LoggedExercise.from_failure(row[0], Status.SKIPPED, str(e))
             add_result_to_oplog(result, oplog_filename)
+            print(row)
+            sys.exit(1)
             continue
 
         try:
@@ -254,7 +263,7 @@ class RealUploader:
 
              
 
-        url = self.server + "/api/1/images";
+        url = self.server + "/api/1/images"
         headers = self.default_headers()
         headers['content-type'] = 'image/png'
 
@@ -331,6 +340,9 @@ class FakeUploader:
         time.sleep(2)
         return uuid_string()
 
+    def update_exercise(self, exercise):
+        self.upload_exercise(exercise)
+
 def get_images(image_dir, exercise_id):
     # All these image paths assume the image dir is the subdir ./PACK
     glob_string = image_dir + exercise_id + "*.png"
@@ -344,7 +356,7 @@ def get_images(image_dir, exercise_id):
         image_list.sort()
 
         if len(image_list) > 2:
-            raise TooManyImagesException("%s images found for %s. Require only two for start/end"%(len(image_list), exercise_id));
+            raise TooManyImagesException("%s images found for %s. Require only two for start/end"%(len(image_list), exercise_id))
 
         return image_list
     elif single_file:
@@ -465,35 +477,29 @@ class Exercise:
     """Create an exercise representation from a row
     """
 
-    TYPES = ["STRENGTH", "COORDINATION", "WEIGHT", "CARDIO", 
-            "MOBILITY", "KETTLEBELLS", "SUSPENSIONTRAINING"]
-    FOCUSES = ["ABS", "BACK", "BICEPS", "CHEST", "LEGS", "SHOULDERS", "TRICEPS" ]
-    SUBTYPES = ['ABS', 'BACK', 'BICEPS', 'CHEST', 'LEGS', 'SHOULDERS', 'TRICEPS', 'FULL', 'HIP' ] 
+    TYPES = ["STRENGTH", "WEIGHT", "CARDIO", "MOBILITY", "CORE", "YOGA" ]
+    FOCUSES = [ "ABS", "BACK", "BICEPS", "CHEST", "FOREARMS", "FULLBODY", "GLUTES", "LEGS", "SHOULDERS", "TRICEPS" ]
 
     @staticmethod
     def from_row(row):
         """Basically a factory method: spreadsheet row to instance"""
 
         def convert_focus(focus):
+            if (focus == "Full Body"):
+                return "FULLBODY"
             return focus.upper()
 
         def convert_type(literal_type):
-            typeMap = {
-                    'Body Weight': 'WEIGHT',
-                    'Flexibility Training': 'MOBILITY',
-                    'Balance & Coordination': 'COORDINATION',
-                    'Strength': 'STRENGTH',
-                    'Sling suspension': 'SUSPENSIONTRAINING',
-                    }
+            typeMap = { 'Body Weight': 'WEIGHT' }
             if literal_type in typeMap:
                 return typeMap[literal_type]
             else: 
-                # fallback for unknown types
+                # fallback 
                 # if it is wrong, it will fail in validate()
                 return literal_type.upper()
 
 
-        required_length = 17 # A2-Q2
+        required_length = 8 # C2-J2
         list_length = len(row)
         missing_vals = required_length-list_length
 
@@ -501,38 +507,26 @@ class Exercise:
             row.extend(['']*missing_vals)
 
         id = row[0]
-        name = row[4]
-        type = convert_type(row[5])
+        name = row[1]
+        description = row[3]
+        type = convert_type(row[4])
 
-        focus_prim = convert_focus(row[9])
-        focus_sec = convert_focus(row[10])
+        focus_prim = convert_focus(row[6])
+        focus_sec = convert_focus(row[7]) 
 
-        subtype = None
-        # subtype = row[6]
-        # Just use the focus prim value, ref Slack talk
-        if type is 'STRENGTH':
-            logger.debug("Type is strength. focus_prim is '{0}'".format(focus_prim))
-            if focus_prim in Exercise.SUBTYPES:
-                subtype = focus_prim
-            elif focus_prim == 'HIPS':
-                subtype = 'HIP'
-            else:
-                logger.warning("Strength subtype was invalid: '{0}'".format(focus_prim))
-            
-        description = row[11]
-        notes = ''
+        notes = '' # unused
+        equipment = ''
 
-        # Drop setting the focus type, due to crap data in spreadsheet
         # Ref https://pt-flow.slack.com/archives/GQ2QX4HNJ/p1600112328050900
-        return Exercise(id, name, description, type, subtype, '', '')
+        return Exercise(id, name, description, type, equipment, '', '')
 
-    def __init__(self, id, name, description, type, subtype, focus_prim, focus_sec):
+    def __init__(self, id, name, description, type, equipment, focus_prim, focus_sec):
         self.id = id # this is the simple id from the spreadsheet, not the UUID from server
         self.uuid = '' # this is the server UUID
         self.name = name
         self.description = description
         self.type = type
-        self.subtype = subtype
+        self.equipment= equipment
         self.focus_prim = focus_prim
         self.focus_sec = focus_sec
         self.notes = ''
