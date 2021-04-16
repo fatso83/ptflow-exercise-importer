@@ -138,18 +138,21 @@ def main():
     filtered = [row for row in values if int(row[0]) in prioritized]
     logger.info("Skipping %d exercises that are not priority %s", len(values)-len(filtered), prioritized)
 
+    exercises = []
     for row in filtered:
         try:
             exercise = Exercise.from_row(row[1:])
             logger.debug(str(exercise))
+            exercises.append(exercise)
         except InvalidExerciseData as e:
-            logger.info("Invalid exercise data: {0}".format(e))
+            logger.warning("Invalid exercise data: {0}".format(e))
             result = LoggedExercise.from_failure(row[0], Status.SKIPPED, str(e))
             add_result_to_oplog(result, oplog_filename)
             print(row)
             sys.exit(1)
             continue
 
+    for exercise in exercises:
         try:
             images = get_images(image_dir, exercise.id)
 
