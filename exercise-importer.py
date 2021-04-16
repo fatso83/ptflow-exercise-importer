@@ -148,8 +148,6 @@ def main():
             logger.warning("Invalid exercise data: {0}".format(e))
             result = LoggedExercise.from_failure(row[0], Status.SKIPPED, str(e))
             add_result_to_oplog(result, oplog_filename)
-            print(row)
-            sys.exit(1)
             continue
 
     for exercise in exercises:
