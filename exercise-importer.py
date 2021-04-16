@@ -156,16 +156,22 @@ def main():
 
             # check if already uploaded - return early if so
             if exercise.id in uploads and uploads[exercise.id].status == Status.OK:
-                logger.info("Already uploaded exercise '%s' (server id: %s). Skipping.", exercise.id, uploads[exercise.id].uuid)
+                logger.debug("Already uploaded exercise '%s' (server id: %s). Skipping.", exercise.id, uploads[exercise.id].uuid)
                 continue
 
             result = upload_exercise(exercise, images, uploader)
             add_result_to_oplog(result, oplog_filename)
 
         except NonConformingImagesException as exception:
-            logger.warning(exception)
+            logger.warning("Images do not conform to expectation: %s", exception)
             result = LoggedExercise.from_failure(exercise.id, Status.SKIPPED, str(exception))
             add_result_to_oplog(result, oplog_filename)
+
+        except requests.exceptions.RequestException as exception:
+            logger.warning("Upload failed: %s", exception)
+            result = LoggedExercise.from_failure(exercise.id, Status.FAILED, str(exception))
+            add_result_to_oplog(result, oplog_filename)
+
 
 
     summary = create_summary(oplog_filename, values)
