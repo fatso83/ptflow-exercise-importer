@@ -476,6 +476,7 @@ class Exercise:
 
     TYPES = ["STRENGTH", "WEIGHT", "CARDIO", "MOBILITY", "CORE", "YOGA" ]
     FOCUSES = [ "ABS", "BACK", "BICEPS", "CHEST", "FOREARMS", "FULLBODY", "GLUTES", "LEGS", "SHOULDERS", "TRICEPS" ]
+    EQUIPMENT = [ "ARM_SLINGERS", "BAND", "BARBELL", "BELT_SQUAT", "BENCH", "BIKE", "BODY_WEIGHT", "BOSU_BALL", "CABLE", "DUMBBELL", "ELLIPTICAL", "EZ_BARBELL", "HAMMER", "JUMP_ROPE", "KETTLEBELL", "LEVERAGE_MACHINE", "MEDICINE_BALL", "PARALLEL_BARS", "POWER_SLED", "PUSH_UP_HANDLES", "RESISTANCE_BAND", "RINGS", "ROLLER", "ROPE", "ROW_MACHINE", "SKI_ERG", "SLED_MACHINE", "SMITH_MACHINE", "STABILITY_BALL", "STAIR_STEPPER", "STATIONARY_BIKE", "SUSPENSION", "TIRE", "TRAP_BAR", "TREADMILL", "VERSA_CLIMBER", "WEIGHT", "OTHER", "NO_EQUIPMENT" ]
 
     @staticmethod
     def from_row(row):
@@ -490,10 +491,12 @@ class Exercise:
             typeMap = { 'Body Weight': 'WEIGHT' }
             if literal_type in typeMap:
                 return typeMap[literal_type]
-            else: 
-                # fallback 
-                # if it is wrong, it will fail in validate()
-                return literal_type.upper()
+            return literal_type.upper()
+
+        def convert_equipment(raw_equipment):
+            converted = raw_equipment.upper().replace(" ", "_")
+
+            return converted
 
 
         required_length = 8 # C2-J2
@@ -506,13 +509,13 @@ class Exercise:
         id = row[0]
         name = row[1]
         description = row[3]
-        type = convert_type(row[4])
+        type = convert_type(row[4].strip())
 
-        focus_prim = convert_focus(row[6])
-        focus_sec = convert_focus(row[7]) 
+        equipment = convert_equipment(row[5].strip())
+        focus_prim = convert_focus(row[6].strip())
+        focus_sec = convert_focus(row[7].strip()) 
 
         notes = '' # unused
-        equipment = ''
 
         # Ref https://pt-flow.slack.com/archives/GQ2QX4HNJ/p1600112328050900
         return Exercise(id, name, description, type, equipment, '', '')
@@ -541,8 +544,8 @@ class Exercise:
             raise InvalidExerciseData("'%s' not a valid focus. Refer to %s. Valid: %s"%(self.focus_prim, php_file, ", ".join(Exercise.FOCUSES)))
         if self.focus_sec and self.focus_sec not in Exercise.FOCUSES:
             raise InvalidExerciseData("'%s' not a valid focus. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.FOCUSES)))
-        if self.type is 'STRENGTH' and self.subtype not in Exercise.SUBTYPES:
-            raise InvalidExerciseData("'%s' not a valid subtype. Refer to %s. Valid: %s"%(self.focus_sec, php_file, ", ".join(Exercise.SUBTYPES)))
+        if self.equipment not in Exercise.EQUIPMENT:
+            raise InvalidExerciseData("'%s' not a valid equipment. Refer to %s. Valid: %s"%(self.equipment, php_file, ", ".join(Exercise.EQUIPMENT)))
 
     def set_image_uuids(self, uuids):
         self.photo_start_id = uuids['start']
