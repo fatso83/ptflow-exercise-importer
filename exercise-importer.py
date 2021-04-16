@@ -131,17 +131,14 @@ def main():
 
     uploads = create_upload_map(oplog_filename)
     if len(uploads.keys()):
-        logger.info("Continuing uploads from previous session ...")
+        logger.info("Continuing uploads from previous session (%s uploads so far) ...", len(uploads.keys()))
 
     logger.debug("Starting to loop through values from spreadsheet")
     prioritized=[1,2]
-    for row in values:
+    filtered = [row for row in values if int(row[0]) in prioritized]
+    logger.info("Skipping %d exercises that are not priority %s", len(values)-len(filtered), prioritized)
 
-        priority=int(row[0])
-        if priority not in prioritized:
-            logger.info("Skipping upload with priority %s. Priorities: %s", row[0], prioritized)
-            continue
-
+    for row in filtered:
         try:
             exercise = Exercise.from_row(row[1:])
             logger.debug(str(exercise))
@@ -225,7 +222,7 @@ def upload_exercise(exercise, images, uploader):
     except InvalidRequestException as e:
         return LoggedExercise.from_failure(exercise.id, Status.FAILED, str(e))
 
-    logger.debug("Uploading images for exercise %s", exercise.id)
+    logger.debug("Uploading %s images for exercise %s", len(images), exercise.id)
     img_uuid_start = uploader.upload_image(images[0])
     img_uuid_end = uploader.upload_image(images[1]) if len(images) > 1 else ''
     image_uuids = { 
