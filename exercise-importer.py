@@ -184,7 +184,7 @@ def main():
     if num_dif > 0 and num_dif < 10:
         print("The ids that are missing from one or the other are " + str(difference_ids))
     elif num_dif > 10:
-        print("There are more than %d ids from one or the other!"%num_dif)
+        print("There are %d ids missing from one or the other!"%num_dif)
     print("Failed uploads: %d" % summary[1])
     print("Skipped uploads: %d" % summary[2])
     print("\nLogfile: importer.log")
@@ -290,6 +290,9 @@ class RealUploader:
 
         return json_response['image']['id']
 
+    def delete_exercise(self, exercise_uuid):
+        pass
+
     def update_exercise(self, exercise):
         if not exercise.uuid:
             raise InvalidExerciseData("Trying to update exercise without a pre-set uuid does not make sense")
@@ -346,6 +349,9 @@ class FakeUploader:
 
     def update_exercise(self, exercise):
         self.upload_exercise(exercise)
+
+    def delete_exercise(self, exercise_uuid):
+        pass
 
 def get_images(image_dir, exercise_id):
     # All these image paths assume the image dir is the subdir ./PACK
@@ -434,7 +440,7 @@ def create_summary(oplog_filename, rows):
         if entry.status == Status.SKIPPED: skipped += 1
         if entry.status == Status.FAILED : failed += 1
 
-    spreadsheet_ids = [row[0] for row in rows]
+    spreadsheet_ids = [row[1] for row in rows]
     upload_ids = upload_map.keys()
     difference_ids = list( set(spreadsheet_ids).symmetric_difference(set(upload_ids)))
     logger.debug(spreadsheet_ids)
@@ -490,9 +496,11 @@ class Exercise:
         """Basically a factory method: spreadsheet row to instance"""
 
         def convert_focus(focus):
-            if (focus == "Full Body"):
+            val = focus.upper()
+            if (val == "FULL BODY"):
                 return "FULLBODY"
-            return focus.upper()
+            return val
+            
 
         def convert_type(literal_type):
             typeMap = { 'Body Weight': 'WEIGHT' }
@@ -525,7 +533,7 @@ class Exercise:
         notes = '' # unused
 
         # Ref https://pt-flow.slack.com/archives/GQ2QX4HNJ/p1600112328050900
-        return Exercise(id, name, description, type, equipment, '', '')
+        return Exercise(id, name, description, type, equipment, focus_prim, focus_sec)
 
     def __init__(self, id, name, description, type, equipment, focus_prim, focus_sec):
         self.id = id # this is the simple id from the spreadsheet, not the UUID from server
