@@ -42,6 +42,7 @@ import yaml
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from google.auth.exceptions import RefreshError
 
 # for heavy http logging
 # import http.client as http_client
@@ -411,7 +412,11 @@ def get_spreadsheet_values(sheets_id, spreadsheet_range):
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except RefreshError as e:
+                logger.error("Failed refreshing. Try removing the token (token.pickle) and retry:  {0}".format(str(e)))
+                sys.exit(1)
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 "credentials.json", SCOPES)

@@ -35,7 +35,7 @@ This will be used when authenticating with Google.
 
 ```
 # You can also set some environment variables instead of specifying them on the command line:
-# export PTFLOW_SESSION=e061d6ee-752f-41f7-b73e-0a8f27522cd2
+# export PTFLOW_TOKEN=e061d6ee-752f-41f7-b73e-0a8f27522cd2
 # export PTFLOW_SERVER=https://myserver.com:443
 
 python3 exercise-importer.py \
