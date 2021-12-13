@@ -55,8 +55,9 @@ RANGE_NAME = "ILLUSTRATIONS!B2:J"
 # For development using mock data
 use_fakes = False
 
+log_filename = "import.log"
 logging.basicConfig(
-        filename="import.log", filemode="w", 
+        filename=log_filename, filemode="w", 
         level=logging.DEBUG,
         format='%(asctime)s %(levelname)-8s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
@@ -188,7 +189,7 @@ def main():
         print("There are %d ids missing from one or the other!"%num_dif)
     print("Failed uploads: %d" % summary[1])
     print("Skipped uploads: %d" % summary[2])
-    print("\nLogfile: importer.log")
+    print("\nLogfile: %s" % log_filename)
     print(80*"-")
 
 
