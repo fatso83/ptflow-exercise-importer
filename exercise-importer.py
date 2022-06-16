@@ -53,7 +53,7 @@ SPREADSHEET_ID = "1oJ2bth6yuyRnEQ9h66Iefah0pDlbZIDwsK7cNdC8Zs8" # ptflow master
 RANGE_NAME = "ILLUSTRATIONS!B2:J"
 
 # For development using mock data
-use_fakes = False
+use_fakes = True
 
 log_filename = "import.log"
 logging.basicConfig(
@@ -118,18 +118,23 @@ def main():
     image_dir = parsed.image_dir
     sheets_id = parsed.sheets_id or SPREADSHEET_ID
 
-    values = get_exercise_rows(sheets_id, RANGE_NAME)
-
-    if not values:
-        logger.error("No data found in spreadsheet.")
-        sys.exit(1)
-    
-    logger.info("Got %s exercise rows from Google Sheets", len(values))
-
     # init bookkeeping file
+    # makes it possible to restore deleted images if keeping the bookkeeping file
     if not os.path.isdir("data"):
         os.mkdir("data")
     oplog_filename = "data/%s-log.yml"%parsed.bookkeeping_id
+
+    exercise_rows = get_exercise_rows(sheets_id, RANGE_NAME)
+
+    main_upload_functionality(uploader, exercise_rows, image_dir, oplog_filename)
+
+def main_upload_functionality(uploader, exercise_rows, image_dir, oplog_filename):
+
+    if not exercise_rows:
+        logger.error("No data found in spreadsheet.")
+        sys.exit(1)
+    
+    logger.info("Got %s exercise rows from Google Sheets", len(exercise_rows))
 
     uploads = create_upload_map(oplog_filename)
     if len(uploads.keys()):
@@ -137,8 +142,8 @@ def main():
 
     logger.debug("Starting to loop through values from spreadsheet")
     prioritized=[1,2]
-    filtered = [row for row in values if int(row[0]) in prioritized]
-    logger.info("Skipping %d exercises that are not priority %s", len(values)-len(filtered), prioritized)
+    filtered = [row for row in exercise_rows if int(row[0]) in prioritized]
+    logger.info("Skipping %d exercises that are not priority %s", len(exercise_rows)-len(filtered), prioritized)
 
     exercises = []
     for row in filtered:
@@ -176,11 +181,11 @@ def main():
 
 
 
-    summary = create_summary(oplog_filename, values)
+    summary = create_summary(oplog_filename, exercise_rows)
     difference_ids = summary[3]
     print("\nFinished uploading!")
     print(80*"-")
-    print("Total number of exercises in Google Sheet: %d" % len(values))
+    print("Total number of exercises in Google Sheet: %d" % len(exercise_rows))
     print("Total number of exercises processed: %d" % summary[0])
     num_dif = len(difference_ids)
     if num_dif > 0 and num_dif < 10:
@@ -286,7 +291,7 @@ class RealUploader:
             logger.debug("Response headers for /api/1/images: {0}".format(r.headers))
 
         json_response = r.json()
-        if r.status_code is not 201:
+        if r.status_code != 201:
             logger.warning("Failed in uploading image: {0}".format(json_response))
             raise InvalidRequestException(str(json_response))
 
@@ -313,7 +318,7 @@ class RealUploader:
                     timeout = 5.0,
                     headers = headers )
             json_response = r.json()
-            if r.status_code is not 200:
+            if r.status_code != 200:
                 logger.warning("Failed in updating exercise: {0}".format(json_response))
                 raise InvalidRequestException(str(json_response))
         else:
@@ -324,7 +329,7 @@ class RealUploader:
                     headers = headers )
 
             json_response = r.json()
-            if r.status_code is not 201:
+            if r.status_code != 201:
                 logger.warning("Failed in creating exercise: {0}".format(json_response))
                 raise InvalidRequestException(str(json_response))
 
@@ -339,14 +344,14 @@ class InvalidRequestException(Exception):
 class FakeUploader:
 
     def upload_image(self, image):
-        logger.debug("Fake image upload of " + image)
-        time.sleep(1)
+        logger.debug("Fake image upload of %s. Awaiting one second to simulate actual network latency", image)
+        time.sleep(1.0)
         return uuid_string()
 
 
     def upload_exercise(self, exercise):
         logger.debug("Fake exercise upload of " + exercise.id)
-        time.sleep(2)
+        time.sleep(0.500)
         return uuid_string()
 
     def update_exercise(self, exercise):
@@ -357,10 +362,14 @@ class FakeUploader:
 
 def get_images(image_dir, exercise_id):
     # All these image paths assume the image dir is the subdir ./PACK
-    glob_string = image_dir + exercise_id + "*.png"
-    single_file_glob_string = image_dir + "SINGLE-STEP/" + exercise_id + "*SINGLE-STEP.png"
+    glob_string = image_dir + "/" + exercise_id + "*.png"
+    single_file_glob_string = image_dir + "/SINGLE-STEP/" + exercise_id + "*SINGLE-STEP.png"
+
     image_list = glob.glob(glob_string)
     single_file = glob.glob(single_file_glob_string)
+
+    logger.debug("Getting images for exercise %s: image_dir=%s, glob_string=%s, single_file_glob_string=%s, image_list=%s, single_file=%s", 
+            exercise_id, image_dir, glob_string, single_file_glob_string, image_list, single_file)
 
     assert not (len(single_file) > 0 and len(image_list) > 0)
 
@@ -372,8 +381,10 @@ def get_images(image_dir, exercise_id):
 
         return image_list
     elif single_file:
+        if len(single_file) > 1: 
+            logger.warn("Found more than a single image matching single image glob: %s", str(single_file))
         logger.debug("id=%s. Single image: %s" % (exercise_id, single_file[0]))
-        return single_file
+        return [single_file[0]]
     else:
         raise NoImagesException("No images found for id " + exercise_id) 
 
@@ -387,12 +398,12 @@ class TooManyImagesException(NonConformingImagesException):
     pass
 
 def get_stubbed_rows(ignore1,ignore2):
+    # prio, spreadsheet id, name, description, type, equipment, focus_prim, focus_sec):
     return [
-        # ["0000","","","", "name", "type", "subtype", "equipment", "Body Part", "focus_primary", "", "description", "", "", "", "", "tags"],
-          ["0001","","","", "Air Bike", "Body Weight", "", "Body weight", "", "Waist", "", "Start flat on your back ...", "", "", "", "", "Obliques, Gluteus Maximus, Quadriceps, Rectus Abdominis"],
-          ["0003","","","", "Air Bike3", "Body Weight", "", "Body weight", "", "Waist", "", "Start flat on your back ...", "", "", "", "", "Obliques, Gluteus Maximus, Quadriceps, Rectus Abdominis"],
-          ["0004","","","", "Air Bike4", "Body Weight", "", "Body weight", "", "Waist", "", "Start flat on your back ...", "", "", "", "", "Obliques, Gluteus Maximus, Quadriceps, Rectus Abdominis"],
-          ["0005","","","", "Air Bike5", "Body Weight", "", "Body weight", "", "Waist", "", "Start flat on your back ...", "", "", "", "", "Obliques, Gluteus Maximus, Quadriceps, Rectus Abdominis"]
+          [1, "0001","name1","desc1", "Air Bike", "Body Weight", "NO_EQUIPMENT", "FULLBODY", "", "Waist", "", "Start flat on your back ...", "", "", "", "", "Obliques, Gluteus Maximus, Quadriceps, Rectus Abdominis"],
+          [1, "0003","name3","desc3", "Air Bike3", "Body Weight", "NO_EQUIPMENT", "GLUTES", "", "Waist", "", "Start flat on your back ...", "", "", "", "", "Obliques, Gluteus Maximus, Quadriceps, Rectus Abdominis"],
+          [2, "0004","name4","desc4", "Air Bike4", "Body Weight", "NO_EQUIPMENT", "FOREARMS", "", "Waist", "", "Start flat on your back ...", "", "", "", "", "Obliques, Gluteus Maximus, Quadriceps, Rectus Abdominis"],
+          [1, "0005","name5","desc5", "Air Bike5", "Body Weight", "NO_EQUIPMENT", "TRICEPS", "" ]
         ]
 
 def get_spreadsheet_values(sheets_id, spreadsheet_range):
